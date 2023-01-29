@@ -26,7 +26,20 @@ def is_alive(root: Tk) -> bool:
     except:
         return False
 
-def create_manager_window(settings: list[SettingOption], subwindows: list[tuple[Action, Action]], get_state):
+def check_alive(root: Tk):
+    try:
+        if not is_alive(root):
+            root.destroy()
+            return False
+    except TclError:
+        try:
+            root.destroy()
+        except TclError:
+            pass
+        return False
+    return True
+
+def create_manager_window(settings: list[SettingOption], get_state):
     # create a window that contains a list of settings
     # we can edit the settings in this window
     root = Tk(baseName="%manager%")
@@ -36,28 +49,28 @@ def create_manager_window(settings: list[SettingOption], subwindows: list[tuple[
     root.configure(background='white')
 
 
-    label_option = Label(root, text='选项名', font=('Helvetica', 20), background='white')
+    label_option = Label(root, text='选项名', font=('Source Han Sans CN', 20), background='white')
     label_option.pack()
     var_option = StringVar(root, value='桃井最中Monaka')
-    entry_option = Entry(root, textvariable=var_option, font=('Helvetica', 20), background='white')
+    entry_option = Entry(root, textvariable=var_option, font=('Source Han Sans CN', 20), background='white')
     entry_option.pack()
 
-    label_time_start = Label(root, text='选项计票起始时间', font=('Helvetica', 20), background='white')
+    label_time_start = Label(root, text='选项计票起始时间', font=('Source Han Sans CN', 20), background='white')
     label_time_start.pack()
     var_time_start = StringVar(root, value=date_to_string(datetime.now()))
-    entry_time_start = Entry(root, textvariable=var_time_start, font=('Helvetica', 20), background='white')
+    entry_time_start = Entry(root, textvariable=var_time_start, font=('Source Han Sans CN', 20), background='white')
     entry_time_start.pack()
 
-    create_button = Button(root, text='创建选项', font=('Helvetica', 20), background='white')
+    create_button = Button(root, text='创建选项', font=('Source Han Sans CN', 20), background='white')
     create_button.bind('<Button-1>', lambda e: add_option())
     create_button.pack()
 
-    rm_button = Button(root, text='删除选项', font=('Helvetica', 20), background='white')
+    rm_button = Button(root, text='删除选项', font=('Source Han Sans CN', 20), background='white')
     rm_button.bind('<Button-1>', lambda e: rm_option())
     rm_button.pack()
 
     # create a list of options
-    listbox = Listbox(root, selectmode='single', font=('Helvetica', 20), background='white')
+    listbox = Listbox(root, selectmode='single', font=('Source Han Sans CN', 20), background='white')
     listbox.pack(fill='both', expand=True)
 
     # create a button to add a new option
@@ -72,16 +85,6 @@ def create_manager_window(settings: list[SettingOption], subwindows: list[tuple[
         option_name = var_option.get()
 
         settings.append({'option': option_name, 'start': v})
-        subroot, substop, substep = create_indicator_window(option_name, get_state)
-        subwindows.append((substop, substep))
-
-        def delete_subwindow():
-            index = subwindows.index((substop, substep))
-            subwindows.pop(index)
-            listbox.delete(index)
-            substop()
-
-        subroot.protocol('WM_DELETE_WINDOW', delete_subwindow)
         listbox.insert(END, f'{option_name} {(dt)}')
 
     # right click and pop up a menu that support deleting
@@ -91,96 +94,82 @@ def create_manager_window(settings: list[SettingOption], subwindows: list[tuple[
         if index:
             listbox.delete(index)
             settings.pop(index[0])
-            stop, step = subwindows.pop(index[0])
-            stop()
 
     def step():
-        # check if alive and update
-
-        try:
-            if not is_alive(root):
-                root.destroy()
-                return
-        except TclError:
-            try:
-                root.destroy()
-            except TclError:
-                pass
-            return
-
-        for stop, step in subwindows:
-            step()
-        root.update()
+        if check_alive(root):
+            root.update()
 
     def stop():
-        for stop, step in subwindows:
-            stop()
-        try:
+        if check_alive(root):
             root.destroy()
-        except TclError:
-            pass
 
     root.protocol('WM_DELETE_WINDOW', stop)
 
     return root, stop, step
 
 
-def create_indicator_window(title: str, get_state: typing.Callable[[], dict[str,int]]):
-    root = Tk(screenName=title, baseName=title)
+def create_indicator_window(get_state: typing.Callable[[], tuple[str,int]]):
+    root = Tk(screenName='投票框', baseName='%indicator%')
     # set title to 'title'
-    root.title(title)
+    root.title('投票')
     root.config(menu=Menu(root))
 
-    root.attributes('-alpha', 0.9)
-    root.attributes('-transparentcolor', 'white')
+    root.configure(background='green')
 
-    # size is fixed to 256x128
-    root.geometry('256x128')
-    root.configure(background='white')
-    text = ttk.Label(root, text=get_state().get(title, 0), font=('Helvetica', 100), background='white')
+    # set font size to 40
+    root.option_add('*Font', ('Source Han Sans CN', 40))
+
+    # set window size to 600x200
+    root.geometry('600x200')
+
+    st = label, value = get_state()
+
+    show_label = ttk.Label(root, text=label, background='green', justify='center')
+    show_value = ttk.Label(root, text=value, background='green', justify='center')
 
     st = get_state()
 
     def step():
         nonlocal st
-        try:
-            if not is_alive(root):
-                root.destroy()
-                return
-        except TclError:
-            try:
-                root.destroy()
-            except TclError:
-                pass
+        if not check_alive(root):
             return
-        new_st = get_state().get(title, 0)
+        new_st = label, value = get_state()
         if new_st == st:
             root.update()
             return
         st = new_st
-        text.configure(text=st)
+        show_label.configure(text=label)
+        show_value.configure(text=value)
         root.update()
 
     def stop():
-        try:
+        if check_alive(root):
             root.destroy()
-        except TclError:
-            pass
 
-    text.pack()
+    show_label.pack()
+    show_value.pack()
 
+    root.protocol('WM_DELETE_WINDOW', stop)
     return root, stop, step
 
 class UI:
-    def __init__(self, settings: list[SettingOption], subwindows: list[tuple[Action, Action]], get_state):
+    def __init__(self, settings: list[SettingOption], get_state):
         self.settings = settings
-        self.subwindows = subwindows
         self.get_state = get_state
-        self.root_tk, self.main_stop, self.main_step = create_manager_window(settings, subwindows, get_state)
+        self.root_tk, self.main_stop, self.main_step = create_manager_window(settings, get_state)
+        def get_state_last():
+            if settings:
+                opt =  settings[-1]
+                st = get_state()
+                label = opt["option"]
+                return label, st.get(label, 0)
+            return "未知项目", 0
+        self.indicator_tk, self.indicator_stop, self.indicator_step = create_indicator_window(get_state_last)
         self.last_check_time = time.time()
 
     def stop(self):
         self.main_stop()
+        self.indicator_stop()
 
     def step(self):
         now = time.time()
@@ -188,12 +177,14 @@ class UI:
             if self.is_alive():
                 self.last_check_time = now
                 self.main_step()
+                self.indicator_step()
                 return True
             else:
                 self.stop()
                 return False
         else:
             self.main_step()
+            self.indicator_step()
             return True
 
     def is_alive(self):

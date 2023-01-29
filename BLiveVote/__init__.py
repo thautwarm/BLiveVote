@@ -70,12 +70,7 @@ class BLiveVoteHandler(BaseHandler):
         pass
 
     async def _on_danmaku(self, client: BLiveClient, message: DanmakuMessage):
-
-        if message.dm_type != 0:
-            # not text message
-            return
         record = Message(uname=message.uname, uid=message.uid, msg=message.msg, timestamp=message.timestamp / 1_000, user_level=message.user_level)
-
         t = datetime.fromtimestamp(record["timestamp"])
         logger.debug(f'[{t}] record: {record}')
         self._local.append(record)
@@ -93,9 +88,7 @@ class BLiveVoteHandler(BaseHandler):
         count: dict = {}
 
         j = 0
-        settings = self._load_settings()
-        if not settings:
-            return
+        settings = [SettingOption(option="Default", start = 0), *self._load_settings()]
 
         option = settings[j]
 
@@ -137,7 +130,7 @@ class App:
         self.handler = BLiveVoteHandler(positive_pattern, lambda: settings.copy(), database_path, set_state)
         self.client = BLiveClient(room_id, ssl=True)
         self.client.add_handler(self.handler)
-        self.ui = UI(settings, [], lambda: self.stats)
+        self.ui = UI(settings, lambda: self.stats)
 
     async def _run_main(self):
         self.client.start()
