@@ -1,3 +1,6 @@
+bundle.exe
+blivevote.exe
+
 *.db
 *.db-shm
 *.db-wal
